@@ -8,48 +8,6 @@
 
 #define FILE_BASE_NAME "PRS"
 
-struct structA
-{
-    const char struct_id = 'A';     // 1 byte
-    unsigned int seq_id;            // 2 bytes
-    unsigned long time;             // 4 bytes
-    float acc_x;                    // 4 bytes
-    float acc_y;                    // 4 bytes
-    float acc_z;                    // 4 bytes
-    float gyro_x;                   // 4 bytes
-    float gyro_y;                   // 4 bytes
-    float gyro_z;                   // 4 bytes
-};                                  // Total 31 bytes
-
-struct structB
-{
-    const char struct_id = 'B';     // 1 byte
-    unsigned int seq_id;            // 2 bytes
-    float dt;                       // 4 bytes
-    float roll;                     // 4 bytes
-    float pitch;                    // 4 bytes
-    float acc_roll;                 // 4 bytes
-    float acc_pitch;                // 4 bytes
-    float gyro_roll_cont;           // 4 bytes
-    float gyro_pitch_cont;          // 4 bytes
-};                                  // Total 31 bytes
-
-struct structC
-{
-    const char struct_id = 'C';     // 1 byte
-    unsigned int seq_id;            // 2 bytes
-    float gnss_lat;
-    float gnss_lon;
-    float gnss_alt;
-    float baro_alt;
-    float comb_alt;
-};
-
-structA dataA;
-structB dataB;
-structC datac;
-
-
 void receiveEvent(int bytes);
 
 // Define pins for SPI
@@ -68,16 +26,22 @@ SdFile file;
 
 String DATA;
 
+String inputString = "";         // a String to hold incoming data
+bool stringComplete = false;  // whether the string is complete
+
 void setup() {
 
-    Wire1.begin(9);
+    Serial.begin(115200);
+    inputString.reserve(200);
+
+    //Wire1.begin(9);
     //Wire1.setClock(400000);
-    Wire1.onReceive(receiveEvent);
+    //Wire1.onReceive(receiveEvent);
 
 
-  if (!sd.begin(SD_CHIP_SELECT_PIN)) {
-    sd.initErrorHalt();
-  }
+    if (!sd.begin(SD_CHIP_SELECT_PIN)) {
+        sd.initErrorHalt();
+    }
 /*
   if (!file.open("SoftSPI.txt", O_RDWR | O_CREAT)) {
     sd.errorHalt(F("open failed"));
@@ -115,11 +79,11 @@ void setup() {
 
 }
 
-
+/*
 void receiveEvent(int bytes) {
   while(Wire1.available()) {
     Wire1.readBytes((uint8_t*)&dataB, 31);
-    /*
+    
     file.print(dataA.time); file.print(",");
     file.print(dataA.acc_x, 4); file.print(",");
     file.print(dataA.acc_y, 4); file.print(",");
@@ -127,7 +91,7 @@ void receiveEvent(int bytes) {
     file.print(dataA.gyro_x, 4); file.print(",");
     file.print(dataA.gyro_y, 4); file.print(",");
     file.print(dataA.gyro_z, 4); file.print("\n");
-    */
+    
    file.print(dataB.dt, 4); file.write(',');
    file.print(dataB.roll, 4); file.write(',');
    file.print(dataB.pitch, 4); file.write(',');
@@ -139,10 +103,37 @@ void receiveEvent(int bytes) {
 
   file.flush();
 }
+*/
+
+void serialEvent() {
+  while (Serial.available()) {
+    // get the new byte:
+    char inChar = (char)Serial.read();
+    // add it to the inputString:
+    inputString += inChar;
+    // if the incoming character is a newline, set a flag so the main loop can
+    // do something about it:
+    if (inChar == '\n') {
+      stringComplete = true;
+    }
+  }
+}
+
 
 void loop() {
-  _delay_ms(1);
+  if(stringComplete == true) {
+      noInterrupts();
+      file.print(inputString);
+      file.flush();
+      inputString = "";
+      stringComplete = false;
+      interrupts();
+  }
 }
+
+
+
+
 
 #else  // ENABLE_SOFTWARE_SPI_CLASS
 #error ENABLE_SOFTWARE_SPI_CLASS must be set non-zero in SdFat/SdFatConfig.h
